@@ -10,6 +10,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 import json
 import re
+from io import StringIO
 
 URL = "https://www.transfermarkt.co.uk/premier-league/marktwerteverein/wettbewerb/GB1"
 
@@ -32,16 +33,13 @@ def euro_to_number(s):
     unit = m.group(2).lower()
     return value * (1_000_000_000 if unit == "b" else 1_000_000)
 
-# -------------------------
-# fetch page (hardened)
-# -------------------------
+# Fetch page
 session = requests.Session()
 session.headers.update({
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
     "Accept-Language": "en-GB,en;q=0.9",
     "Referer": "https://www.transfermarkt.co.uk/",
-    "Connection": "keep-alive",
 })
 
 resp = session.get(URL, timeout=30)
@@ -52,35 +50,33 @@ m = re.search(r"<title>(.*?)</title>", html, flags=re.I | re.S)
 title = m.group(1).strip()[:120] if m else "NO_TITLE_FOUND"
 print(f"[Transfermarkt] HTTP {resp.status_code}, html_len={len(html)}, title='{title}'")
 
-# -------------------------
-# parse tables (real block detection happens here)
-# -------------------------
-tables = pd.read_html(html)  # requires lxml in Actions
+# IMPORTANT: wrap in StringIO so pandas doesn't treat it like a filename
+tables = pd.read_html(StringIO(html))
+
 if not tables:
     raise RuntimeError("No tables found on page (possible block / layout change).")
 
-# pick table that contains the 'Current value' column if possible
+# Pick table with 'Current value' column if possible
 df = None
 for t in tables:
     cols = [str(c).strip().lower() for c in t.columns]
-    if any("current value" == c for c in cols):
+    if "current value" in cols:
         df = t.copy()
         break
 
 if df is None:
-    # fallback: largest table
     df = max(tables, key=lambda x: x.shape[0] * x.shape[1]).copy()
 
 df.columns = [str(c).strip() for c in df.columns]
 
-# Remove footer total row
+# Remove footer row
 mask_total = df.apply(
     lambda r: r.astype(str).str.contains("Total value of all clubs", case=False, na=False).any(),
     axis=1
 )
 df = df.loc[~mask_total].copy()
 
-# Detect columns dynamically
+# Detect columns
 club_col = "Club" if "Club" in df.columns else df.columns[2]
 
 league_col = None
