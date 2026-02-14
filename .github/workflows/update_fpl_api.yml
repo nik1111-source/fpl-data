@@ -6,6 +6,10 @@ on:
     - cron: "0 18 * * *"
   workflow_dispatch: {}
 
+permissions:
+  contents: write
+
+
 jobs:
   run:
     runs-on: ubuntu-latest
@@ -26,6 +30,9 @@ jobs:
 
       - name: Run scraper
         run: python update_fpl_api.py
+
+      - name: Run Transfermarkt scraper
+        run: python update_transfermarkt_club_values.py
 
       - name: Commit updated outputs
         run: |
