@@ -3,7 +3,6 @@
 
 # In[4]:
 
-
 import pandas as pd
 import requests
 from pathlib import Path
