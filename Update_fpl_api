@@ -24,8 +24,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install numpy pandas requests
 
-      - name: Run scraper
+      - name: Run FPL scraper
         run: python update_fpl_api.py
+      
+      - name: Run Transfermarkt scraper
+        run: python update_transfermarkt_club_values.py
+
 
       - name: Commit updated outputs
         run: |
